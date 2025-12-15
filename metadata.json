@@ -1,0 +1,5 @@
+{
+  "name": "Mystic Tabletop Tarot",
+  "description": "A free-form Tarot simulator allowing users to draw from a full 78-card deck, place cards anywhere on the screen to create custom spreads, and flip them to reveal their fate.",
+  "requestFramePermissions": []
+}
