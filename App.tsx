@@ -395,7 +395,7 @@ export default function App() {
           >
             <Shuffle size={18} className={`transition-transform duration-500 ${isShufflingDeck ? 'animate-spin' : 'group-hover:rotate-180'}`} />
             <span className="font-serif font-bold tracking-wider hidden sm:inline">
-              {placedCards.length > 0 ? 'Collect & Shuffle' : 'Shuffle Deck'}
+              {placedCards.length > 0 ? 'Recoger y barajar' : 'Barajar mazo'}
             </span>
           </button>
         </div>
@@ -446,8 +446,8 @@ export default function App() {
       </div>
 
       <div className="absolute top-4 right-4 z-0 text-right opacity-50 pointer-events-none">
-        <h1 className="text-2xl font-serif text-mystic-gold">Arcana Tabletop</h1>
-        <p className="text-sm font-sans text-slate-400">Current Deck: {currentDeckStyle === 'noblet' ? 'Jean Noblet' : 'CBD'}</p>
+        <h1 className="text-2xl font-serif text-mystic-gold">Tablero de Tarot Poético</h1>
+        <p className="text-sm font-sans text-slate-400">Mazo actual: {currentDeckStyle === 'noblet' ? 'Jean Noblet' : 'CBD'}</p>
       </div>
 
       <div className="absolute bottom-8 left-8 z-[1000] pointer-events-auto">
