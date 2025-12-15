@@ -3,11 +3,11 @@ import { PlacedCard } from '../types';
 
 interface CardComponentProps {
   card: PlacedCard;
-  // onFlip removed: Flipping is now handled by the parent's drag logic
   style?: React.CSSProperties;
   onMouseDown?: (e: React.MouseEvent) => void;
   isDragging?: boolean;
   aspectRatio: number;
+  transitionDuration?: string; // New prop for controlling animation speed
 }
 
 export const CardComponent: React.FC<CardComponentProps> = ({ 
@@ -15,7 +15,8 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   style, 
   onMouseDown,
   isDragging,
-  aspectRatio
+  aspectRatio,
+  transitionDuration = '0.2s'
 }) => {
   const [imgSrc, setImgSrc] = useState(card.imageUrl);
   const [hasError, setHasError] = useState(false);
@@ -44,7 +45,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
         top: card.y,
         aspectRatio: aspectRatio,
         zIndex: isDragging ? 9999 : card.zIndex,
-        transition: isDragging ? 'none' : 'transform 0.2s',
+        transition: isDragging ? 'none' : `transform ${transitionDuration}, left ${transitionDuration}, top ${transitionDuration}`,
         ...style
       }}
       onMouseDown={onMouseDown}

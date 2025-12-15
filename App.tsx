@@ -11,6 +11,10 @@ export default function App() {
   const [zIndexCounter, setZIndexCounter] = useState(10);
   const [currentDeckStyle, setCurrentDeckStyle] = useState<DeckStyle>('noblet');
   
+  // --- Animation States ---
+  const [isReturningCards, setIsReturningCards] = useState(false);
+  const [isShufflingDeck, setIsShufflingDeck] = useState(false);
+
   // --- Viewport / Camera State ---
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -66,34 +70,81 @@ export default function App() {
     // Center the view roughly
     setPan({ x: window.innerWidth / 2 - 100, y: window.innerHeight / 2 - 200 });
     setZoom(1);
-  };
-
-  const handleShuffle = () => {
-    const allCards: TarotCardData[] = [...deck, ...placedCards.map(p => ({
-      id: p.id,
-      name: p.name,
-      number: p.number,
-      arcana: p.arcana,
-      suit: p.suit,
-      imageUrl: p.imageUrl,
-      backImageUrl: p.backImageUrl,
-      fileName: p.fileName
-    }))];
-    
-    setPlacedCards([]);
-    setDeck(shuffleDeck(allCards));
+    setIsReturningCards(false);
+    setIsShufflingDeck(false);
   };
 
   // --- Coordinate Transformations ---
 
   // Convert Screen (Mouse) coordinates to World (Canvas) coordinates
-  // Used for rendering logic mainly
   const screenToWorld = (screenX: number, screenY: number) => {
     return {
       x: (screenX - pan.x) / zoom,
       y: (screenY - pan.y) / zoom
     };
   };
+
+  const handleShuffleAndReset = () => {
+    if (placedCards.length === 0) {
+      // Just shuffle the deck in place if no cards on table
+      setIsShufflingDeck(true);
+      setDeck(prev => shuffleDeck(prev));
+      setTimeout(() => setIsShufflingDeck(false), 600);
+      return;
+    }
+
+    // 1. Calculate Deck World Position
+    // The deck is fixed at bottom-8 left-8 (32px padding)
+    const cardDims = getCurrentCardDimensions();
+    const deckScreenX = 32 + (cardDims.width / 2); // Center of deck on screen
+    const deckScreenY = window.innerHeight - 32 - (cardDims.height / 2);
+    
+    // Convert that screen point to current world coordinates
+    const targetWorld = screenToWorld(deckScreenX, deckScreenY);
+    const targetX = targetWorld.x - (cardDims.width / 2); // Adjusted for top-left anchor
+    const targetY = targetWorld.y - (cardDims.height / 2);
+
+    // 2. Trigger "Fly Back" Animation
+    setIsReturningCards(true);
+
+    // Move all cards to the deck position and flip them down
+    setPlacedCards(prev => prev.map(c => ({
+      ...c,
+      x: targetX,
+      y: targetY,
+      isFlipped: false, 
+      zIndex: 9999 // Bring to top while flying
+    })));
+
+    // 3. Cleanup after animation completes
+    setTimeout(() => {
+      // Reconstitute the full deck
+      const allCardsOnTable = placedCards.map(p => ({
+        id: p.id,
+        name: p.name,
+        number: p.number,
+        arcana: p.arcana,
+        suit: p.suit,
+        imageUrl: p.imageUrl,
+        backImageUrl: p.backImageUrl,
+        fileName: p.fileName
+      }));
+      
+      const fullDeck = [...deck, ...allCardsOnTable];
+      
+      // Clear table
+      setPlacedCards([]);
+      // Shuffle logic
+      setDeck(shuffleDeck(fullDeck));
+      setIsReturningCards(false);
+
+      // 4. Trigger Deck Shake Animation
+      setIsShufflingDeck(true);
+      setTimeout(() => setIsShufflingDeck(false), 600);
+
+    }, 500); // 500ms matches the CSS transition time
+  };
+
 
   // --- Keyboard Events (Spacebar Pan) ---
   useEffect(() => {
@@ -138,7 +189,6 @@ export default function App() {
       if (Math.abs(newZoom - currentZoom) < 0.0001) return;
 
       // 3. Calculate New Pan to keep World Point under Mouse AFTER zoom
-      // Screen = World * Zoom + Pan  =>  Pan = Screen - World * Zoom
       const newPanX = e.clientX - mouseWorldX * newZoom;
       const newPanY = e.clientY - mouseWorldY * newZoom;
       
@@ -163,7 +213,7 @@ export default function App() {
   // --- Mouse Handlers for Interactions ---
 
   const handleMouseDownDeck = (e: React.MouseEvent) => {
-    if (deck.length === 0) return;
+    if (deck.length === 0 || isShufflingDeck || isReturningCards) return;
     if (e.button !== 0) return; 
     e.preventDefault();
     e.stopPropagation();
@@ -178,7 +228,7 @@ export default function App() {
   };
 
   const handleMouseDownTableCard = (e: React.MouseEvent, card: PlacedCard) => {
-    if (isSpacePressed || e.button === 1) return; 
+    if (isSpacePressed || e.button === 1 || isReturningCards) return; 
     if (e.button !== 0) return; 
 
     e.preventDefault();
@@ -337,19 +387,16 @@ export default function App() {
       {/* --- UI LAYER (Fixed) --- */}
       <div className="absolute top-4 left-4 z-[10000] flex flex-col sm:flex-row gap-2 items-start sm:items-center pointer-events-auto">
         <div className="flex gap-2">
+          {/* Combined Shuffle & Reset Button */}
           <button 
-            onClick={() => resetGame(currentDeckStyle)}
-            className="flex items-center gap-2 px-4 py-2 bg-mystic-800 border border-mystic-gold/50 text-mystic-gold hover:bg-mystic-800/80 rounded transition-colors shadow-lg"
+            onClick={handleShuffleAndReset}
+            disabled={isReturningCards || isShufflingDeck}
+            className={`flex items-center gap-2 px-6 py-2 bg-mystic-800 border border-mystic-gold/50 text-mystic-gold rounded transition-all shadow-lg group ${isReturningCards || isShufflingDeck ? 'opacity-50 cursor-wait' : 'hover:bg-mystic-800/80 hover:shadow-mystic-gold/20'}`}
           >
-            <RotateCcw size={18} />
-            <span className="font-serif hidden sm:inline">Reset</span>
-          </button>
-          <button 
-            onClick={handleShuffle}
-            className="flex items-center gap-2 px-4 py-2 bg-mystic-800 border border-mystic-gold/50 text-mystic-gold hover:bg-mystic-800/80 rounded transition-colors shadow-lg"
-          >
-            <Shuffle size={18} />
-            <span className="font-serif hidden sm:inline">Shuffle</span>
+            <Shuffle size={18} className={`transition-transform duration-500 ${isShufflingDeck ? 'animate-spin' : 'group-hover:rotate-180'}`} />
+            <span className="font-serif font-bold tracking-wider hidden sm:inline">
+              {placedCards.length > 0 ? 'Collect & Shuffle' : 'Shuffle Deck'}
+            </span>
           </button>
         </div>
 
@@ -408,11 +455,11 @@ export default function App() {
           cardsRemaining={deck.length} 
           onMouseDown={handleMouseDownDeck}
           aspectRatio={deckRatio}
+          isShuffling={isShufflingDeck}
         />
       </div>
 
       {/* --- WORLD LAYER (Transformed) --- */}
-      {/* FIX: Use 'origin-top-left' (standard Tailwind) instead of 'transform-origin-top-left' */}
       <div 
         className="w-full h-full origin-top-left will-change-transform"
         style={{
@@ -426,6 +473,7 @@ export default function App() {
             onMouseDown={(e) => handleMouseDownTableCard(e, card)}
             isDragging={isDragging && draggedCardId === card.instanceId}
             aspectRatio={deckRatio}
+            transitionDuration={isReturningCards ? '0.5s' : '0.2s'}
           />
         ))}
       </div>
