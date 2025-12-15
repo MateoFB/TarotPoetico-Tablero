@@ -3,7 +3,7 @@ import { PlacedCard } from '../types';
 
 interface CardComponentProps {
   card: PlacedCard;
-  onFlip: (instanceId: string) => void;
+  // onFlip removed: Flipping is now handled by the parent's drag logic
   style?: React.CSSProperties;
   onMouseDown?: (e: React.MouseEvent) => void;
   isDragging?: boolean;
@@ -12,7 +12,6 @@ interface CardComponentProps {
 
 export const CardComponent: React.FC<CardComponentProps> = ({ 
   card, 
-  onFlip, 
   style, 
   onMouseDown,
   isDragging,
@@ -51,12 +50,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
       onMouseDown={onMouseDown}
     >
       {/* Perspective Container */}
-      <div 
-        className="relative w-full h-full perspective-1000 group"
-        onClick={(e) => {
-          if (!isDragging) onFlip(card.instanceId);
-        }}
-      >
+      <div className="relative w-full h-full perspective-1000 group">
         {/* Inner Card (The flipper) */}
         <div 
           className={`relative w-full h-full duration-700 transform-style-3d shadow-xl rounded-xl ${

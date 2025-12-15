@@ -19,6 +19,9 @@ export default function App() {
   const [ghostPosition, setGhostPosition] = useState({ x: 0, y: 0 });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Stores the initial position of a click to calculate distance on release
+  const dragStartPos = useRef({ x: 0, y: 0 });
 
   // Calculate deck ratio and derive approximate pixel dimensions for drag offsets
   const deckRatio = useMemo(() => getDeckRatio(currentDeckStyle), [currentDeckStyle]);
@@ -70,6 +73,7 @@ export default function App() {
     setIsDragging(true);
     setDragSource('DECK');
     setGhostPosition({ x: e.clientX, y: e.clientY });
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
     
     // Center the drag on the card
     const dims = getCurrentCardDimensions();
@@ -83,6 +87,7 @@ export default function App() {
     setIsDragging(true);
     setDragSource('TABLE');
     setDraggedCardId(card.instanceId);
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
 
     // Calculate offset from top-left of the card to the mouse cursor
     // The card position is (card.x, card.y)
@@ -117,10 +122,17 @@ export default function App() {
     }
   }, [isDragging, dragSource, draggedCardId, dragOffset]);
 
+  const handleFlip = (instanceId: string) => {
+    setPlacedCards(prev => prev.map(c => 
+      c.instanceId === instanceId ? { ...c, isFlipped: !c.isFlipped } : c
+    ));
+  };
+
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (!isDragging) return;
 
     if (dragSource === 'DECK') {
+      // Logic for dropping a new card from the deck
       const newCardData = deck[0]; 
       const remainingDeck = deck.slice(1);
 
@@ -139,12 +151,25 @@ export default function App() {
       setZIndexCounter(prev => prev + 1);
       setPlacedCards(prev => [...prev, newPlacedCard]);
       setDeck(remainingDeck);
+    
+    } else if (dragSource === 'TABLE' && draggedCardId) {
+      // Logic for releasing a table card
+      // Calculate distance moved
+      const dx = e.clientX - dragStartPos.current.x;
+      const dy = e.clientY - dragStartPos.current.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // If the mouse moved less than 5 pixels, consider it a Click/Flip
+      // Otherwise, it was just a Move operation
+      if (distance < 5) {
+        handleFlip(draggedCardId);
+      }
     }
 
     setIsDragging(false);
     setDragSource(null);
     setDraggedCardId(null);
-  }, [isDragging, dragSource, deck, dragOffset, zIndexCounter]);
+  }, [isDragging, dragSource, deck, dragOffset, zIndexCounter, draggedCardId]);
 
   useEffect(() => {
     if (isDragging) {
@@ -159,12 +184,6 @@ export default function App() {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
-
-  const handleFlip = (instanceId: string) => {
-    setPlacedCards(prev => prev.map(c => 
-      c.instanceId === instanceId ? { ...c, isFlipped: !c.isFlipped } : c
-    ));
-  };
 
   // Helper to render ghost card with correct dimensions
   const ghostDims = isDragging && dragSource === 'DECK' ? getCurrentCardDimensions() : { width: 0, height: 0 };
@@ -235,7 +254,6 @@ export default function App() {
           <CardComponent
             key={card.instanceId}
             card={card}
-            onFlip={handleFlip}
             onMouseDown={(e) => handleMouseDownTableCard(e, card)}
             isDragging={isDragging && draggedCardId === card.instanceId}
             aspectRatio={deckRatio}
