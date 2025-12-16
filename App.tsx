@@ -169,8 +169,11 @@ export default function App() {
     }
 
     const cardDims = getCurrentCardDimensions();
+    // Re-calculate based on updated mobile positions if needed
+    // Deck is at bottom-20 (80px) + padding. 
+    // This animation target is approximate, centered visually.
     const deckScreenX = 32 + (cardDims.width / 2);
-    const deckScreenY = window.innerHeight - 32 - (cardDims.height / 2);
+    const deckScreenY = window.innerHeight - 80 - (cardDims.height / 2); // Approximate target
     const targetWorld = screenToWorld(deckScreenX, deckScreenY);
     const targetX = targetWorld.x - (cardDims.width / 2);
     const targetY = targetWorld.y - (cardDims.height / 2);
@@ -377,8 +380,16 @@ export default function App() {
   const handleMove = useCallback((e: MouseEvent | TouchEvent) => {
     // Check for Pinch Zoom first
     if ('touches' in e && e.touches.length === 2) {
-      const dist = getPinchDistance(e);
-      if (dist && lastPinchDistRef.current) {
+      const dist = getPinchDistance(e as TouchEvent);
+      
+      // FIX: If we started with 1 finger (panning) and added a 2nd, the ref might be null. 
+      // Initialize it now to avoid jumps or lack of response.
+      if (!lastPinchDistRef.current) {
+         lastPinchDistRef.current = dist;
+         return; 
+      }
+
+      if (dist) {
         // Calculate zoom delta
         const delta = dist - lastPinchDistRef.current;
         const zoomSensitivity = 0.005;
@@ -461,7 +472,7 @@ export default function App() {
 
   // Global End Handler (Window)
   const handleEnd = useCallback((e: MouseEvent | TouchEvent) => {
-    // Reset pinch ref
+    // Reset pinch ref if we drop below 2 fingers
     if ('touches' in e && e.touches.length < 2) {
       lastPinchDistRef.current = null;
     }
@@ -648,7 +659,8 @@ export default function App() {
         <p className="text-sm font-sans text-slate-400">Mazo actual: {currentDeckStyle === 'noblet' ? 'Jean Noblet' : 'CBD'}</p>
       </div>
 
-      <div className="absolute bottom-4 sm:bottom-8 left-0 right-0 sm:right-auto sm:left-8 z-[1000] flex flex-col items-center pointer-events-auto">
+      {/* Adjusted bottom position to bottom-20 on mobile to clear system UI/bars */}
+      <div className="absolute bottom-20 sm:bottom-8 left-0 right-0 sm:right-auto sm:left-8 z-[1000] flex flex-col items-center pointer-events-auto">
         <Deck 
           cardsRemaining={deck.length} 
           onStart={handleStartDeck}
@@ -657,7 +669,7 @@ export default function App() {
         />
         
         {/* DECK FILTER BUTTONS - Responsive Container */}
-        <div className="mt-4 flex flex-wrap justify-center gap-2 p-1 bg-mystic-900/80 backdrop-blur rounded-2xl sm:rounded-full border border-mystic-gold/30 max-w-[90vw] sm:max-w-none">
+        <div className="mt-4 flex flex-wrap justify-center gap-2 p-1 bg-mystic-900/80 backdrop-blur rounded-2xl sm:rounded-full border border-mystic-gold/30 max-w-[90vw] sm:max-w-none shadow-xl">
             <button 
                 onClick={() => handleFilterChange('ALL')}
                 onTouchStart={(e) => { e.stopPropagation(); handleFilterChange('ALL'); }}
