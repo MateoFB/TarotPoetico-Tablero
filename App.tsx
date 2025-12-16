@@ -1,15 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { TarotCardData, PlacedCard, DeckStyle } from './src/types';
+import { TarotCardData, PlacedCard, DeckStyle, ArcanaType } from './src/types';
 import { createDeck, shuffleDeck, getDeckRatio, updateCardAssets } from './src/services/cardService';
 import { Deck } from './src/components/Deck';
 import { CardComponent } from './src/components/CardComponent';
-import { Shuffle, Layers, ZoomIn, ZoomOut, Hand } from 'lucide-react';
+import { Shuffle, Layers, ZoomIn, ZoomOut, Hand, Filter } from 'lucide-react';
+
+type FilterType = 'ALL' | 'MAJOR' | 'MINOR';
 
 export default function App() {
   const [deck, setDeck] = useState<TarotCardData[]>([]);
+  // Reserve holds cards that are currently filtered out but not placed on table
+  const [reserveCards, setReserveCards] = useState<TarotCardData[]>([]);
   const [placedCards, setPlacedCards] = useState<PlacedCard[]>([]);
   const [zIndexCounter, setZIndexCounter] = useState(10);
   const [currentDeckStyle, setCurrentDeckStyle] = useState<DeckStyle>('noblet');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
   
   // --- Animation States ---
   const [isReturningCards, setIsReturningCards] = useState(false);
@@ -73,8 +78,10 @@ export default function App() {
   const resetGame = (style: DeckStyle) => {
     const newDeck = shuffleDeck(createDeck(style));
     setDeck(newDeck);
+    setReserveCards([]); // Clear reserve
     setPlacedCards([]);
     setZIndexCounter(10);
+    setActiveFilter('ALL'); // Reset filter
     // Center the view roughly
     setPan({ x: window.innerWidth / 2 - 100, y: window.innerHeight / 2 - 200 });
     setZoom(1);
@@ -89,9 +96,41 @@ export default function App() {
 
     // Update remaining cards in deck
     setDeck(prevDeck => prevDeck.map(card => updateCardAssets(card, newStyle)));
+    
+    // Update reserve cards
+    setReserveCards(prevReserve => prevReserve.map(card => updateCardAssets(card, newStyle)));
 
     // Update cards already placed on table (preserving position, rotation, etc.)
     setPlacedCards(prevPlaced => prevPlaced.map(card => updateCardAssets(card, newStyle)));
+  };
+
+  // Logic to filter the deck without affecting placed cards
+  const handleFilterChange = (type: FilterType) => {
+    if (isReturningCards || isShufflingDeck) return;
+    
+    // 1. Gather all currently un-placed cards (Deck + Reserve)
+    const allAvailable = [...deck, ...reserveCards];
+    
+    // 2. Split them based on the new filter
+    let newDeck: TarotCardData[] = [];
+    let newReserve: TarotCardData[] = [];
+
+    if (type === 'ALL') {
+        newDeck = allAvailable;
+        newReserve = [];
+    } else if (type === 'MAJOR') {
+        newDeck = allAvailable.filter(c => c.arcana === ArcanaType.MAJOR);
+        newReserve = allAvailable.filter(c => c.arcana !== ArcanaType.MAJOR);
+    } else if (type === 'MINOR') {
+        newDeck = allAvailable.filter(c => c.arcana === ArcanaType.MINOR);
+        newReserve = allAvailable.filter(c => c.arcana !== ArcanaType.MINOR);
+    }
+
+    // 3. Update State
+    // We preserve the shuffle order implicitly by just filtering the existing arrays
+    setDeck(newDeck);
+    setReserveCards(newReserve);
+    setActiveFilter(type);
   };
 
   // --- Coordinate Transformations ---
@@ -115,9 +154,11 @@ export default function App() {
 
   const handleShuffleAndReset = () => {
     if (placedCards.length === 0) {
-      // Just shuffle the deck in place if no cards on table
+      // Just shuffle the active deck in place if no cards on table
+      // Note: We also shuffle reserve to be fair, though unseen
       setIsShufflingDeck(true);
       setDeck(prev => shuffleDeck(prev));
+      setReserveCards(prev => shuffleDeck(prev));
       setTimeout(() => setIsShufflingDeck(false), 600);
       return;
     }
@@ -147,7 +188,7 @@ export default function App() {
 
     // 3. Cleanup after animation completes
     setTimeout(() => {
-      // Reconstitute the full deck
+      // Reconstitute the full deck from ALL sources
       const allCardsOnTable = placedCards.map(p => ({
         id: p.id,
         name: p.name,
@@ -159,12 +200,28 @@ export default function App() {
         fileName: p.fileName
       }));
       
-      const fullDeck = [...deck, ...allCardsOnTable];
+      const fullCollection = [...deck, ...reserveCards, ...allCardsOnTable];
+      const shuffledCollection = shuffleDeck(fullCollection);
       
       // Clear table
       setPlacedCards([]);
-      // Shuffle logic (using current style to maintain images)
-      setDeck(shuffleDeck(fullDeck));
+      
+      // Redistribute based on CURRENT active filter
+      let nextDeck: TarotCardData[] = [];
+      let nextReserve: TarotCardData[] = [];
+
+      if (activeFilter === 'ALL') {
+        nextDeck = shuffledCollection;
+      } else if (activeFilter === 'MAJOR') {
+        nextDeck = shuffledCollection.filter(c => c.arcana === ArcanaType.MAJOR);
+        nextReserve = shuffledCollection.filter(c => c.arcana !== ArcanaType.MAJOR);
+      } else if (activeFilter === 'MINOR') {
+        nextDeck = shuffledCollection.filter(c => c.arcana === ArcanaType.MINOR);
+        nextReserve = shuffledCollection.filter(c => c.arcana !== ArcanaType.MINOR);
+      }
+
+      setDeck(nextDeck);
+      setReserveCards(nextReserve);
       setIsReturningCards(false);
 
       // 4. Trigger Deck Shake Animation
@@ -540,13 +597,38 @@ export default function App() {
         <p className="text-sm font-sans text-slate-400">Mazo actual: {currentDeckStyle === 'noblet' ? 'Jean Noblet' : 'CBD'}</p>
       </div>
 
-      <div className="absolute bottom-8 left-8 z-[1000] pointer-events-auto">
+      <div className="absolute bottom-8 left-8 z-[1000] flex flex-col items-center pointer-events-auto">
         <Deck 
           cardsRemaining={deck.length} 
           onMouseDown={handleMouseDownDeck}
           aspectRatio={deckRatio}
           isShuffling={isShufflingDeck}
         />
+        
+        {/* DECK FILTER BUTTONS */}
+        <div className="mt-4 flex gap-2 p-1 bg-mystic-900/80 backdrop-blur rounded-full border border-mystic-gold/30">
+            <button 
+                onClick={() => handleFilterChange('ALL')}
+                className={`px-3 py-1 rounded-full text-xs font-serif transition-colors ${activeFilter === 'ALL' ? 'bg-mystic-gold text-mystic-900 font-bold shadow-md' : 'text-mystic-gold hover:bg-mystic-800'}`}
+                title="Mostrar todo el mazo"
+            >
+                Mazo completo
+            </button>
+            <button 
+                onClick={() => handleFilterChange('MAJOR')}
+                className={`px-3 py-1 rounded-full text-xs font-serif transition-colors ${activeFilter === 'MAJOR' ? 'bg-mystic-gold text-mystic-900 font-bold shadow-md' : 'text-mystic-gold hover:bg-mystic-800'}`}
+                title="Solo Arcanos Mayores"
+            >
+                Arcanos Mayores
+            </button>
+            <button 
+                onClick={() => handleFilterChange('MINOR')}
+                className={`px-3 py-1 rounded-full text-xs font-serif transition-colors ${activeFilter === 'MINOR' ? 'bg-mystic-gold text-mystic-900 font-bold shadow-md' : 'text-mystic-gold hover:bg-mystic-800'}`}
+                title="Solo Arcanos Menores"
+            >
+                Arcanos Menores
+            </button>
+        </div>
       </div>
 
       {/* --- WORLD LAYER (Transformed) --- */}
