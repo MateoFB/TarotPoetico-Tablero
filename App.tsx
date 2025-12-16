@@ -48,6 +48,8 @@ export default function App() {
   const zoomRef = useRef(zoom);
   // Track initial pinch distance for zoom
   const lastPinchDistRef = useRef<number | null>(null);
+  // Track last touch time to prevent ghost mouse events
+  const lastTouchTimeRef = useRef(0);
 
   // Sync refs with state
   useEffect(() => {
@@ -271,10 +273,14 @@ export default function App() {
   const handleStartDeck = (e: React.MouseEvent | React.TouchEvent) => {
     if (deck.length === 0 || isShufflingDeck || isReturningCards) return;
     
-    // Allow standard click for left mouse button only, or any touch
-    if ('button' in e && e.button !== 0) return; 
+    if ('touches' in e) {
+        lastTouchTimeRef.current = Date.now();
+    } else {
+        // Prevent mouse event if touch happened < 500ms ago
+        if (Date.now() - lastTouchTimeRef.current < 500) return;
+        if ('button' in e && e.button !== 0) return; 
+    }
 
-    // Prevent default only if necessary (usually handled in specific listeners)
     e.stopPropagation();
 
     const pos = getClientPos(e);
@@ -288,7 +294,13 @@ export default function App() {
   };
 
   const handleStartTableCard = (e: React.MouseEvent | React.TouchEvent, card: PlacedCard) => {
-    if ('button' in e && e.button !== 0 && e.button !== undefined) return;
+    if ('touches' in e) {
+        lastTouchTimeRef.current = Date.now();
+    } else {
+        if (Date.now() - lastTouchTimeRef.current < 500) return;
+        if ('button' in e && e.button !== 0 && e.button !== undefined) return;
+    }
+
     if (isSpacePressed || isReturningCards) return;
 
     e.stopPropagation();
@@ -313,6 +325,12 @@ export default function App() {
   };
 
   const handleStartRotate = (e: React.MouseEvent | React.TouchEvent, card: PlacedCard) => {
+    if ('touches' in e) {
+        lastTouchTimeRef.current = Date.now();
+    } else {
+        if (Date.now() - lastTouchTimeRef.current < 500) return;
+    }
+
     e.stopPropagation();
     e.preventDefault();
 
@@ -338,8 +356,14 @@ export default function App() {
   };
 
   const handleStartBackground = (e: React.MouseEvent | React.TouchEvent) => {
-    // If it's a mouse right click or spacebar, or simply a touch on background (mobile pan)
     const isTouch = 'touches' in e;
+    
+    if (isTouch) {
+        lastTouchTimeRef.current = Date.now();
+    } else {
+        if (Date.now() - lastTouchTimeRef.current < 500) return;
+    }
+
     const isMouseLeft = 'button' in e && e.button === 0;
 
     if (isTouch || isSpacePressed || isMouseLeft) {
@@ -445,7 +469,6 @@ export default function App() {
     // 1. End Panning
     if (isPanning) {
       setIsPanning(false);
-      // Don't return immediately, in case we were dragging/panning simultaneously (rare but possible)
     }
 
     // 2. End Rotation
@@ -491,8 +514,8 @@ export default function App() {
       const dy = pos.y - dragStartPos.current.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      // If it was a short tap/click (moved less than 5px), flip the card
-      if (distance < 5) {
+      // Relaxed threshold for mobile taps (15px)
+      if (distance < 15) {
         handleFlip(draggedCardId);
       }
     }
