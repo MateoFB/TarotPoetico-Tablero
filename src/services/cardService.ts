@@ -105,6 +105,15 @@ const getCardAssetUrl = (fileName: string, displayName: string, type: 'front' | 
   return `https://placehold.co/300x520/${bgColor}/${textColor}.png?text=${encodedName}+(${deckLabel})&font=playfair-display`;
 };
 
+// New Helper Function to update assets for an existing card object (preserving other data)
+export const updateCardAssets = <T extends TarotCardData>(card: T, style: DeckStyle): T => {
+  return {
+    ...card,
+    imageUrl: getCardAssetUrl(card.fileName, card.name, 'front', style),
+    backImageUrl: getCardAssetUrl('back', 'Back', 'back', style)
+  };
+};
+
 // Tarot de Marseille Major Arcana
 const majorArcanaData = [
   { number: 0, name: "Le Mat" },

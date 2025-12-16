@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { TarotCardData, PlacedCard, DeckStyle } from './src/types';
-import { createDeck, shuffleDeck, getDeckRatio } from './src/services/cardService';
+import { createDeck, shuffleDeck, getDeckRatio, updateCardAssets } from './src/services/cardService';
 import { Deck } from './src/components/Deck';
 import { CardComponent } from './src/components/CardComponent';
-import { RotateCcw, Shuffle, Layers, ZoomIn, ZoomOut, Maximize, Hand } from 'lucide-react';
+import { Shuffle, Layers, ZoomIn, ZoomOut, Hand } from 'lucide-react';
 
 export default function App() {
   const [deck, setDeck] = useState<TarotCardData[]>([]);
@@ -65,10 +65,10 @@ export default function App() {
     return { width, height };
   };
 
-  // Initialize
+  // Initialize ONLY on Mount (empty dependency array)
   useEffect(() => {
-    resetGame(currentDeckStyle);
-  }, [currentDeckStyle]);
+    resetGame('noblet');
+  }, []);
 
   const resetGame = (style: DeckStyle) => {
     const newDeck = shuffleDeck(createDeck(style));
@@ -80,6 +80,18 @@ export default function App() {
     setZoom(1);
     setIsReturningCards(false);
     setIsShufflingDeck(false);
+  };
+
+  // Logic to handle style switching without resetting the board
+  const handleStyleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStyle = e.target.value as DeckStyle;
+    setCurrentDeckStyle(newStyle);
+
+    // Update remaining cards in deck
+    setDeck(prevDeck => prevDeck.map(card => updateCardAssets(card, newStyle)));
+
+    // Update cards already placed on table (preserving position, rotation, etc.)
+    setPlacedCards(prevPlaced => prevPlaced.map(card => updateCardAssets(card, newStyle)));
   };
 
   // --- Coordinate Transformations ---
@@ -151,7 +163,7 @@ export default function App() {
       
       // Clear table
       setPlacedCards([]);
-      // Shuffle logic
+      // Shuffle logic (using current style to maintain images)
       setDeck(shuffleDeck(fullDeck));
       setIsReturningCards(false);
 
@@ -484,7 +496,7 @@ export default function App() {
           </div>
           <select 
             value={currentDeckStyle}
-            onChange={(e) => setCurrentDeckStyle(e.target.value as DeckStyle)}
+            onChange={handleStyleChange}
             onMouseDown={(e) => e.stopPropagation()} 
             className="bg-transparent text-mystic-gold font-serif text-sm px-4 py-2 outline-none cursor-pointer hover:bg-mystic-700/50 transition-colors"
           >
