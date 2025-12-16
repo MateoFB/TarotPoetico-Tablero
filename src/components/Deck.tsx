@@ -2,12 +2,12 @@ import React from 'react';
 
 interface DeckProps {
   cardsRemaining: number;
-  onMouseDown: (e: React.MouseEvent) => void;
+  onStart: (e: React.MouseEvent | React.TouchEvent) => void;
   aspectRatio: number;
   isShuffling?: boolean;
 }
 
-export const Deck: React.FC<DeckProps> = ({ cardsRemaining, onMouseDown, aspectRatio, isShuffling }) => {
+export const Deck: React.FC<DeckProps> = ({ cardsRemaining, onStart, aspectRatio, isShuffling }) => {
   // Styles for the shuffle animation
   const shuffleStyle = isShuffling ? {
     animation: 'shuffleShake 0.5s ease-in-out infinite'
@@ -38,16 +38,17 @@ export const Deck: React.FC<DeckProps> = ({ cardsRemaining, onMouseDown, aspectR
 
       {cardsRemaining === 0 ? (
         <div 
-          className={`w-32 sm:w-44 border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center transition-all duration-300 ${isShuffling ? 'scale-110 border-mystic-gold' : ''}`}
+          className={`w-24 sm:w-44 border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center transition-all duration-300 ${isShuffling ? 'scale-110 border-mystic-gold' : ''}`}
           style={{ aspectRatio: aspectRatio, ...shuffleStyle }}
         >
           <span className="text-white/30 text-sm font-sans">{isShuffling ? 'Shuffling...' : 'Empty'}</span>
         </div>
       ) : (
         <div 
-          className="relative w-32 sm:w-44 cursor-grab group"
+          className="relative w-24 sm:w-44 cursor-grab group"
           style={{ aspectRatio: aspectRatio, ...shuffleStyle }}
-          onMouseDown={onMouseDown}
+          onMouseDown={onStart}
+          onTouchStart={onStart}
         >
           {/* Stack effect with animation classes when shuffling */}
           {cardsRemaining > 2 && (
@@ -61,11 +62,11 @@ export const Deck: React.FC<DeckProps> = ({ cardsRemaining, onMouseDown, aspectR
           <div className="absolute top-0 left-0 w-full h-full bg-mystic-800 rounded-xl border border-mystic-gold/40 shadow-2xl flex items-center justify-center overflow-hidden hover:brightness-110 transition-all">
             <div className="w-full h-full bg-repeat" style={{ backgroundImage: `url(https://www.transparenttextures.com/patterns/black-scales.png)`, backgroundColor: '#1e293b' }}>
                 <div className="absolute inset-0 m-1 border-4 border-double border-mystic-gold/20 rounded-lg flex flex-col items-center justify-center opacity-70">
-                    <div className={`w-20 h-20 border border-mystic-gold rounded-full flex items-center justify-center mb-4 bg-mystic-900/40 ${isShuffling ? 'animate-spin' : ''}`} style={{ animationDuration: '2s' }}>
-                        <div className="w-14 h-14 border border-mystic-gold/50 rounded-full rotate-45"></div>
+                    <div className={`w-14 h-14 sm:w-20 sm:h-20 border border-mystic-gold rounded-full flex items-center justify-center mb-2 sm:mb-4 bg-mystic-900/40 ${isShuffling ? 'animate-spin' : ''}`} style={{ animationDuration: '2s' }}>
+                        <div className="w-10 h-10 sm:w-14 sm:h-14 border border-mystic-gold/50 rounded-full rotate-45"></div>
                     </div>
-                    <span className="text-mystic-gold font-serif text-sm tracking-[0.2em] uppercase">Tarot</span>
-                    <span className="text-white/30 text-xs mt-2 font-sans">{cardsRemaining} Cards</span>
+                    <span className="text-mystic-gold font-serif text-[10px] sm:text-sm tracking-[0.2em] uppercase">Tarot</span>
+                    <span className="text-white/30 text-[10px] sm:text-xs mt-1 sm:mt-2 font-sans">{cardsRemaining}</span>
                 </div>
             </div>
           </div>

@@ -5,8 +5,8 @@ import { RotateCw } from 'lucide-react';
 interface CardComponentProps {
   card: PlacedCard;
   style?: React.CSSProperties;
-  onMouseDown?: (e: React.MouseEvent) => void;
-  onRotateStart?: (e: React.MouseEvent) => void; 
+  onStart?: (e: React.MouseEvent | React.TouchEvent) => void;
+  onRotateStart?: (e: React.MouseEvent | React.TouchEvent) => void; 
   isDragging?: boolean;
   isRotating?: boolean; // New prop
   aspectRatio: number;
@@ -16,7 +16,7 @@ interface CardComponentProps {
 export const CardComponent: React.FC<CardComponentProps> = ({ 
   card, 
   style, 
-  onMouseDown,
+  onStart,
   onRotateStart,
   isDragging,
   isRotating,
@@ -46,7 +46,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
 
   return (
     <div
-      className={`absolute w-32 sm:w-44 cursor-grab select-none group ${isDragging ? 'z-50 shadow-2xl' : ''}`}
+      className={`absolute w-24 sm:w-44 cursor-grab select-none group ${isDragging ? 'z-50 shadow-2xl' : ''}`}
       style={{
         left: card.x,
         top: card.y,
@@ -57,20 +57,27 @@ export const CardComponent: React.FC<CardComponentProps> = ({
         transition: shouldDisableTransition ? 'none' : `transform ${transitionDuration}, left ${transitionDuration}, top ${transitionDuration}`,
         ...style
       }}
-      onMouseDown={onMouseDown}
+      onMouseDown={onStart}
+      onTouchStart={onStart}
     >
-      {/* Rotation Control - Visible on Hover */}
+      {/* Rotation Control - Visible on Hover or Touch */}
       {!isDragging && (
         <button
           onMouseDown={(e) => {
-            e.stopPropagation(); // Stop drag start
-            e.preventDefault();  // Prevent text selection
+            e.stopPropagation(); 
+            e.preventDefault(); 
             onRotateStart && onRotateStart(e);
           }}
-          className="absolute -top-3 -right-3 z-[100] bg-mystic-800 text-mystic-gold border border-mystic-gold rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg hover:bg-mystic-700 hover:scale-110 cursor-crosshair"
+          onTouchStart={(e) => {
+            e.stopPropagation(); 
+            // e.preventDefault(); // Do not prevent default here on touch to allow event propagation if needed
+            onRotateStart && onRotateStart(e);
+          }}
+          // Made larger and always barely visible on mobile for accessibility, full opacity on hover
+          className="absolute -top-4 -right-4 sm:-top-3 sm:-right-3 z-[100] bg-mystic-800 text-mystic-gold border border-mystic-gold rounded-full p-2 sm:p-1.5 opacity-50 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg hover:bg-mystic-700 hover:scale-110 cursor-crosshair touch-manipulation"
           title="Hold & Drag to Rotate"
         >
-          <RotateCw size={14} />
+          <RotateCw size={16} className="sm:w-3.5 sm:h-3.5" />
         </button>
       )}
 
@@ -86,8 +93,8 @@ export const CardComponent: React.FC<CardComponentProps> = ({
           <div className="absolute w-full h-full backface-hidden rounded-xl overflow-hidden border border-mystic-gold/30 bg-mystic-800">
              <div className="w-full h-full bg-repeat" style={{ backgroundImage: `url(${card.backImageUrl})`, backgroundColor: '#1e293b' }}>
                 <div className="flex flex-col items-center justify-center h-full border-4 border-double border-mystic-gold/20 m-1 rounded-lg">
-                    <div className="w-24 h-24 rounded-full border border-mystic-gold/30 flex items-center justify-center bg-mystic-900/50 backdrop-blur-sm">
-                        <span className="text-mystic-gold/50 text-3xl font-serif">☾</span>
+                    <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full border border-mystic-gold/30 flex items-center justify-center bg-mystic-900/50 backdrop-blur-sm">
+                        <span className="text-mystic-gold/50 text-2xl sm:text-3xl font-serif">☾</span>
                     </div>
                 </div>
              </div>
@@ -95,7 +102,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
 
           {/* BACK */}
           <div className="absolute w-full h-full backface-hidden rotate-y-180 rounded-xl overflow-hidden bg-[#f4e4bc] border border-stone-800">
-            <div className="w-full h-full p-2 flex flex-col items-center justify-center">
+            <div className="w-full h-full p-1 sm:p-2 flex flex-col items-center justify-center">
                <img 
                 src={imgSrc} 
                 alt={card.name} 
